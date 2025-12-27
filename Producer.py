@@ -26,22 +26,27 @@ def get_current_free_games():
         return f"Error fetching data: {e}"
 
 def main():
-    load_dotenv()
+    # Only load dotenv if the file actually exists (local testing)
+    if os.path.exists(".env"):
+        load_dotenv()
+    
     game = get_current_free_games()
     if game:
         title = game.get("title")
         print("title sending to redis: ", title)
 
-        #Connect to upstash
-        redis_conn = Redis.from_url(os.getenv("REDIS_URL"))
+        # Get the URL and strip any hidden spaces
+        url = os.getenv("REDIS_URL")
+        if url:
+            url = url.strip() 
 
-        #Create a queue
+        # Connect using the URL
+        redis_conn = Redis.from_url(url)
+        
         q = Queue(connection=redis_conn)
-
         recipients = ["20891a1242@gmail.com"]
 
         for recipient in recipients:
-            #Push task into queue
             job = q.enqueue(send_email_task, title, recipient)
             print(f"Sent for {recipient} -> {job.id}")
     else:
