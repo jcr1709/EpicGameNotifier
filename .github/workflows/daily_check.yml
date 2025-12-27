@@ -21,7 +21,7 @@ jobs:
       - name: Run Producer
         env:
           REDIS_URL: ${{ secrets.REDIS_URL }}
-        run: python producer.py
+        run: python Producer.py
         
       - name: Run Worker (Consumer)
         env:
