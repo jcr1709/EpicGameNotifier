@@ -1,0 +1,7 @@
+# Secrets
+.env
+
+# Python junk (temporary files you don't need on Git)
+__pycache__/
+*.pyc
+.venv/
