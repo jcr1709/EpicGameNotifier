@@ -1,0 +1,32 @@
+name: Epic Games Daily Notifier
+on:
+  schedule:
+    - cron: '35 16 * * *' # This is 21:35 IST
+  workflow_dispatch:      # This adds the manual "Play" button
+
+jobs:
+  run-automation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          
+      - name: Install dependencies
+        run: pip install requests redis rq python-dotenv
+        
+      - name: Run Producer
+        env:
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+        run: python producer.py
+        
+      - name: Run Worker (Consumer)
+        env:
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+          MY_EMAIL_ID: ${{ secrets.MY_EMAIL_ID }}
+          MY_EMAIL_PASSWORD: ${{ secrets.MY_EMAIL_PASSWORD }}
+        # --burst runs all jobs in queue then exits
+        run: rq worker --url ${{ secrets.REDIS_URL }} --burst
