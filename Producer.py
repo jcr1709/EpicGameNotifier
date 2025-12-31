@@ -1,56 +1,61 @@
 import requests
 from redis import Redis
 from rq import Queue
-from Tasks import send_email_task
+from Tasks import send_ntfy_notification # Updated function name
 import os
 from dotenv import load_dotenv
 
 def get_current_free_games():
     url = "https://store-site-backend-static.ak.epicgames.com/freeGamesPromotions"
-    
     try:
         response = requests.get(url)
         response.raise_for_status()
         data = response.json()
-
-        # Drill down to the actual list of games
-        # Path: data -> Catalog -> searchStore -> elements
         games_list = data.get("data", {}).get("Catalog", {}).get("searchStore", {}).get("elements", [])
 
-        # Find the first game where "isCodeRedemptionOnly" is True
+        # Find the game currently free (usually has a discounted price of 0)
+        # Or keep your specific filter if you only want code-redemption games
         free_game = next((item for item in games_list if item.get("isCodeRedemptionOnly")), None)
+        
+        # Fallback: If no "code" game, get the first actual free game
+        if not free_game:
+            free_game = games_list[0] if games_list else None
 
         return free_game
-        
     except Exception as e:
-        return f"Error fetching data: {e}"
+        print(f"Error fetching data: {e}")
+        return None
 
 def main():
-    # Only load dotenv if the file actually exists (local testing)
     if os.path.exists(".env"):
         load_dotenv()
     
     game = get_current_free_games()
     if game:
         title = game.get("title")
-        print("title sending to redis: ", title)
+        
+        # Generate the Epic Store URL
+        # Path: catalogNs -> mappings -> pageSlug
+        try:
+            slug = game.get("catalogNs", {}).get("mappings", [{}])[0].get("pageSlug")
+            game_url = f"https://store.epicgames.com/en-US/p/{slug}"
+        except:
+            game_url = "https://store.epicgames.com/en-US/free-games"
 
-        # Get the URL and strip any hidden spaces
+        print(f"Game found: {title}. Sending to Redis...")
+
         url = os.getenv("REDIS_URL")
         if url:
             url = url.strip() 
 
-        # Connect using the URL
         redis_conn = Redis.from_url(url)
-        
         q = Queue(connection=redis_conn)
-        recipients = ["20891a1242@gmail.com"]
-
-        for recipient in recipients:
-            job = q.enqueue(send_email_task, title, recipient)
-            print(f"Sent for {recipient} -> {job.id}")
+        
+        # Enqueue the task with title and the URL
+        job = q.enqueue(send_ntfy_notification, title, game_url)
+        print(f"✅ Job enqueued successfully: {job.id}")
     else:
-        print("No game found")
+        print("No game found today.")
 
 if __name__=="__main__":
     main()
