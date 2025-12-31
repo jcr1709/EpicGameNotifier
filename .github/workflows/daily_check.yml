@@ -1,8 +1,8 @@
 name: Epic Games Daily Notifier
 on:
   schedule:
-    - cron: '32 15 * * *' # This is 21:32 IST
-  workflow_dispatch:      # This adds the manual "Play" button
+    - cron: '32 15 * * *' # 21:02 IST (Adjusted slightly to ensure it's after the drop)
+  workflow_dispatch:      # The manual "Play" button
 
 jobs:
   run-automation:
@@ -26,7 +26,6 @@ jobs:
       - name: Run Worker (Consumer)
         env:
           REDIS_URL: ${{ secrets.REDIS_URL }}
-          MY_EMAIL_ID: ${{ secrets.MY_EMAIL_ID }}
-          MY_EMAIL_PASSWORD: ${{ secrets.MY_EMAIL_PASSWORD }}
-        # --burst runs all jobs in queue then exits
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }} # 👈 New secret added here
+        # Note: We removed the email secrets as they are no longer needed!
         run: rq worker --url ${{ secrets.REDIS_URL }} --burst
